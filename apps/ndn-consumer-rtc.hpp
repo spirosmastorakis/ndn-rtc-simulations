@@ -24,6 +24,8 @@
 
 #include "ndn-consumer.hpp"
 
+#include <fstream>
+
 namespace ns3 {
 namespace ndn {
 
@@ -79,11 +81,15 @@ protected:
   std::string
   GetRandomize() const;
 
+private:
   /**
    * @brief Send first interest with conference prefix
    */
   void
   SendInitialInterest();
+
+  Time
+  CheckIfDataFresh();
 
 protected:
   double m_frequency; // Frequency of interest packets (in hertz)
@@ -107,7 +113,13 @@ protected:
   std::vector<std::pair<Name, Time>> m_outstandingInterests;
   int m_frames;
 
+  bool m_bootstrap_done;
+
   Time m_previousDataArrival;
+
+  Time m_freshness;
+  std::string m_filename;
+  std::ofstream m_outputFile;
 };
 
 } // namespace ndn

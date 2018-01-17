@@ -47,9 +47,9 @@ main(int argc, char* argv[])
 
   // Creating nodes
   NodeContainer nodes;
-  nodes.Create(7);
+  nodes.Create(15);
 
-  // Create a simple binary tree
+  // Create a binary tree of 4 levels
   PointToPointHelper p2p;
   p2p.Install(nodes.Get(0), nodes.Get(1));
   p2p.Install(nodes.Get(0), nodes.Get(2));
@@ -57,6 +57,15 @@ main(int argc, char* argv[])
   p2p.Install(nodes.Get(1), nodes.Get(4));
   p2p.Install(nodes.Get(2), nodes.Get(5));
   p2p.Install(nodes.Get(2), nodes.Get(6));
+  // leaves
+  p2p.Install(nodes.Get(3), nodes.Get(7));
+  p2p.Install(nodes.Get(3), nodes.Get(8));
+  p2p.Install(nodes.Get(4), nodes.Get(9));
+  p2p.Install(nodes.Get(4), nodes.Get(10));
+  p2p.Install(nodes.Get(5), nodes.Get(11));
+  p2p.Install(nodes.Get(5), nodes.Get(12));
+  p2p.Install(nodes.Get(6), nodes.Get(13));
+  p2p.Install(nodes.Get(6), nodes.Get(14));
 
   // Install NDN stack on all nodes
   ndn::StackHelper ndnHelper;
@@ -75,7 +84,7 @@ main(int argc, char* argv[])
   consumerHelper1.SetAttribute("SamplingRate", StringValue(std::to_string(sampling_rate)));
   consumerHelper1.SetAttribute("Freshness", StringValue(std::to_string(freshness)+"s"));
   consumerHelper1.SetAttribute("Filename", StringValue("consumer1.csv"));
-  ApplicationContainer consumer1 = consumerHelper1.Install(nodes.Get(3));
+  ApplicationContainer consumer1 = consumerHelper1.Install(nodes.Get(7));
   consumer1.Start(Seconds(0)); // start consumer at 0s
 
   ndn::AppHelper consumerHelper2("ns3::ndn::ConsumerRtc");
@@ -84,8 +93,8 @@ main(int argc, char* argv[])
   consumerHelper2.SetAttribute("SamplingRate", StringValue(std::to_string(sampling_rate)));
   consumerHelper2.SetAttribute("Freshness", StringValue(std::to_string(freshness)+"s"));
   consumerHelper2.SetAttribute("Filename", StringValue("consumer2.csv"));
-  ApplicationContainer consumer2 = consumerHelper2.Install(nodes.Get(4));
-  consumer2.Start(Seconds(5)); // start consumer at 5s
+  ApplicationContainer consumer2 = consumerHelper2.Install(nodes.Get(8));
+  consumer2.Start(Seconds(2)); // start consumer at 2s
 
   ndn::AppHelper consumerHelper3("ns3::ndn::ConsumerRtc");
   consumerHelper3.SetAttribute("ConferencePrefix", StringValue("/conference"));
@@ -93,8 +102,8 @@ main(int argc, char* argv[])
   consumerHelper3.SetAttribute("SamplingRate", StringValue(std::to_string(sampling_rate)));
   consumerHelper3.SetAttribute("Freshness", StringValue(std::to_string(freshness)+"s"));
   consumerHelper3.SetAttribute("Filename", StringValue("consumer3.csv"));
-  ApplicationContainer consumer3 = consumerHelper3.Install(nodes.Get(5));
-  consumer3.Start(Seconds(10)); // start consumer at 10s
+  ApplicationContainer consumer3 = consumerHelper3.Install(nodes.Get(9));
+  consumer3.Start(Seconds(4)); // start consumer at 4s
 
   ndn::AppHelper consumerHelper4("ns3::ndn::ConsumerRtc");
   consumerHelper4.SetAttribute("ConferencePrefix", StringValue("/conference"));
@@ -102,8 +111,44 @@ main(int argc, char* argv[])
   consumerHelper4.SetAttribute("SamplingRate", StringValue(std::to_string(sampling_rate)));
   consumerHelper4.SetAttribute("Freshness", StringValue(std::to_string(freshness)+"s"));
   consumerHelper4.SetAttribute("Filename", StringValue("consumer4.csv"));
-  ApplicationContainer consumer4 = consumerHelper4.Install(nodes.Get(6));
-  consumer4.Start(Seconds(15)); // start consumer at 15s
+  ApplicationContainer consumer4 = consumerHelper4.Install(nodes.Get(10));
+  consumer4.Start(Seconds(6)); // start consumer at 6s
+
+  ndn::AppHelper consumerHelper5("ns3::ndn::ConsumerRtc");
+  consumerHelper5.SetAttribute("ConferencePrefix", StringValue("/conference"));
+  consumerHelper5.SetAttribute("MustBeFreshNum", StringValue(std::to_string(fresh_data_num)));
+  consumerHelper5.SetAttribute("SamplingRate", StringValue(std::to_string(sampling_rate)));
+  consumerHelper5.SetAttribute("Freshness", StringValue(std::to_string(freshness)+"s"));
+  consumerHelper5.SetAttribute("Filename", StringValue("consumer5.csv"));
+  ApplicationContainer consumer5 = consumerHelper5.Install(nodes.Get(11));
+  consumer5.Start(Seconds(8)); // start consumer at 8s
+
+  ndn::AppHelper consumerHelper6("ns3::ndn::ConsumerRtc");
+  consumerHelper6.SetAttribute("ConferencePrefix", StringValue("/conference"));
+  consumerHelper6.SetAttribute("MustBeFreshNum", StringValue(std::to_string(fresh_data_num)));
+  consumerHelper6.SetAttribute("SamplingRate", StringValue(std::to_string(sampling_rate)));
+  consumerHelper6.SetAttribute("Freshness", StringValue(std::to_string(freshness)+"s"));
+  consumerHelper6.SetAttribute("Filename", StringValue("consumer6.csv"));
+  ApplicationContainer consumer6 = consumerHelper6.Install(nodes.Get(12));
+  consumer6.Start(Seconds(10)); // start consumer at 10s
+
+  ndn::AppHelper consumerHelper7("ns3::ndn::ConsumerRtc");
+  consumerHelper7.SetAttribute("ConferencePrefix", StringValue("/conference"));
+  consumerHelper7.SetAttribute("MustBeFreshNum", StringValue(std::to_string(fresh_data_num)));
+  consumerHelper7.SetAttribute("SamplingRate", StringValue(std::to_string(sampling_rate)));
+  consumerHelper7.SetAttribute("Freshness", StringValue(std::to_string(freshness)+"s"));
+  consumerHelper7.SetAttribute("Filename", StringValue("consumer7.csv"));
+  ApplicationContainer consumer7 = consumerHelper7.Install(nodes.Get(13));
+  consumer7.Start(Seconds(12)); // start consumer at 12s
+
+  ndn::AppHelper consumerHelper8("ns3::ndn::ConsumerRtc");
+  consumerHelper8.SetAttribute("ConferencePrefix", StringValue("/conference"));
+  consumerHelper8.SetAttribute("MustBeFreshNum", StringValue(std::to_string(fresh_data_num)));
+  consumerHelper8.SetAttribute("SamplingRate", StringValue(std::to_string(sampling_rate)));
+  consumerHelper8.SetAttribute("Freshness", StringValue(std::to_string(freshness)+"s"));
+  consumerHelper8.SetAttribute("Filename", StringValue("consumer8.csv"));
+  ApplicationContainer consumer8 = consumerHelper8.Install(nodes.Get(14));
+  consumer8.Start(Seconds(14)); // start consumer at 14s
 
   // Producer Rtc
   ndn::AppHelper producerHelper("ns3::ndn::ProducerRtc");

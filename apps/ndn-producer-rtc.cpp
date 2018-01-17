@@ -68,7 +68,9 @@ ProducerRtc::GetTypeId(void)
          MakeUintegerChecker<uint32_t>())
       .AddAttribute("KeyLocator",
                     "Name to be used for key locator.  If root, then key locator is not used",
-                    NameValue(), MakeNameAccessor(&ProducerRtc::m_keyLocator), MakeNameChecker());
+                    NameValue(), MakeNameAccessor(&ProducerRtc::m_keyLocator), MakeNameChecker())
+      .AddAttribute("Filename", "Name of output .csv file", StringValue("default.csv"),
+                    MakeStringAccessor(&ProducerRtc::m_filename), MakeStringChecker());
   return tid;
 }
 
@@ -85,6 +87,9 @@ ProducerRtc::StartApplication()
   NS_LOG_FUNCTION_NOARGS();
   App::StartApplication();
 
+  m_outputFile.open(m_filename);
+  m_outputFile << "Generation Time,Frame Name\n";
+
   m_samplePeriod = 1.0 / m_samplingRate;
   NS_LOG_INFO("Sampling Rate: " << m_samplingRate);
   NS_LOG_INFO("Sampling Period: " << m_samplePeriod);
@@ -100,6 +105,8 @@ ProducerRtc::StopApplication()
   NS_LOG_FUNCTION_NOARGS();
 
   App::StopApplication();
+
+  m_outputFile.close();
 }
 
 void
@@ -111,6 +118,7 @@ ProducerRtc::GenerateFrame()
   frameName.appendSequenceNumber(m_frameId);
 
   NS_LOG_INFO("Generating Frame: " << frameName);
+  m_outputFile << Simulator::Now().GetSeconds() << "," << frameName << "\n";
 
   m_framesGenerated.push_back(frameName);
   m_frameId++;

@@ -28,6 +28,8 @@
 #include "ns3/nstime.h"
 #include "ns3/ptr.h"
 
+#include <fstream>
+
 namespace ns3 {
 namespace ndn {
 
@@ -79,6 +81,8 @@ private:
   uint64_t m_frameId;
   std::vector<Name> m_framesGenerated;
   std::vector<Name> m_framesRequested;
+  std::string m_filename;
+  std::ofstream m_outputFile;
 };
 
 } // namespace ndn

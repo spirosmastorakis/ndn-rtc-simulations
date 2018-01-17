@@ -54,7 +54,7 @@ main(int argc, char* argv[])
   Config::SetDefault("ns3::PointToPointChannel::Delay", StringValue("10ms"));
   Config::SetDefault("ns3::QueueBase::MaxPackets", UintegerValue(20));
 
-  double freshness = 1.0;
+  double freshness = 0.01;
   uint32_t fresh_data_num = 1;
 
   // Read optional command-line parameters (e.g., enable visualizer with ./waf --run=<> --visualize
@@ -85,6 +85,8 @@ main(int argc, char* argv[])
   // Consumer
   ndn::AppHelper consumerHelper("ns3::ndn::ConsumerRtc");
   consumerHelper.SetAttribute("ConferencePrefix", StringValue("/conference"));
+  consumerHelper.SetAttribute("MustBeFreshNum", StringValue(std::to_string(fresh_data_num)));
+  consumerHelper.SetAttribute("Freshness", StringValue(std::to_string(freshness)+"s"));
   consumerHelper.Install(nodes.Get(0));                        // first node
 
   // Producer
@@ -93,9 +95,10 @@ main(int argc, char* argv[])
   producerHelper.SetAttribute("ConferencePrefix", StringValue("/conference"));
   producerHelper.SetAttribute("ProducerPrefix", StringValue("/producer"));
   producerHelper.SetAttribute("PayloadSize", StringValue("1024"));
+  producerHelper.SetAttribute("Freshness", StringValue(std::to_string(freshness)+"s"));
   producerHelper.Install(nodes.Get(2)); // last node
 
-  Simulator::Stop(Seconds(20.0));
+  Simulator::Stop(Seconds(2.0));
 
   Simulator::Run();
   Simulator::Destroy();

@@ -60,6 +60,13 @@ ConsumerRtc::GetTypeId(void)
                     MakeUintegerAccessor(&ConsumerRtc::m_samplingRate),
                     MakeUintegerChecker<uint32_t>())
 
+      .AddAttribute("Freshness", "Freshness of data packets, if 0, then unlimited freshness",
+                    TimeValue(Seconds(0)), MakeTimeAccessor(&ConsumerRtc::m_freshness),
+                    MakeTimeChecker())
+
+      .AddAttribute("Filename", "Name of output .csv file", StringValue("default.csv"),
+                    MakeStringAccessor(&ConsumerRtc::m_filename), MakeStringChecker())
+
     ;
 
   return tid;
@@ -71,6 +78,7 @@ ConsumerRtc::ConsumerRtc()
   , m_inFlight(0)
   , m_currentSeqNum(0)
   , m_frames(0)
+  , m_bootstrap_done(false)
 {
   NS_LOG_FUNCTION_NOARGS();
   m_seqMax = std::numeric_limits<uint32_t>::max();
@@ -83,6 +91,11 @@ ConsumerRtc::~ConsumerRtc()
 void
 ConsumerRtc::StartApplication()
 {
+  m_outputFile.open(m_filename);
+  m_outputFile << "Time,RTT,Darr,Frame Name\n";
+
+  m_samplePeriod = 1.0 / m_samplingRate;
+
   NS_LOG_FUNCTION_NOARGS();
   NS_LOG_INFO("Interests for fresh data: " << m_mustBeFresh);
 
@@ -98,12 +111,13 @@ ConsumerRtc::StopApplication()
 
   // cleanup base stuff
   App::StopApplication();
+
+  m_outputFile.close();
 }
 
 void
 ConsumerRtc::SendInitialInterest()
 {
-  m_samplePeriod = 1.0 / m_samplingRate;
   shared_ptr<Interest> interest = make_shared<Interest>();
   interest->setNonce(m_rand->GetValue(0, std::numeric_limits<uint32_t>::max()));
   interest->setName(m_conferencePrefix);
@@ -140,11 +154,6 @@ ConsumerRtc::ScheduleNextPacket()
     time::milliseconds interestLifeTime(m_interestLifeTime.GetMilliSeconds());
     interest->setInterestLifetime(interestLifeTime);
 
-    if (m_mustBeFresh > 0) {
-      interest->setMustBeFresh(true);
-      m_mustBeFresh--;
-    }
-
     NS_LOG_INFO("> Interest for frame: " << interest->getName());
 
     m_transmittedInterests(interest, this, m_face);
@@ -158,34 +167,53 @@ void
 ConsumerRtc::OnData(shared_ptr<const Data> data)
 {
   m_inFlight--;
-  m_frames++;
-  // Data for initial Interest
-  if (m_inFlight == 0 && m_lambda == 0) {
+  Time interArrivalDelay = Seconds(0);
+  // Data for initial Interest(s)
+  if (!m_bootstrap_done) {
+    if (m_lambda != 0)
+      interArrivalDelay = this->CheckIfDataFresh();
+    else
+      m_previousDataArrival = Simulator::Now();
+
     m_DRD = Simulator::Now() - m_DRD;
+
+    // print to output file
+    m_outputFile << Simulator::Now().GetSeconds() <<  "," << m_DRD.GetMilliSeconds() << "," << interArrivalDelay.GetMilliSeconds() << "," << data->getName() << "\n";
+    m_outputFile.flush();
+
     m_lambda = ceil(m_DRD.GetSeconds() / m_samplePeriod);
-    m_previousDataArrival = Simulator::Now();
     NS_LOG_INFO("> Initial Data packet received for: " << data->getName());
-    NS_LOG_INFO("Estimated request window: " << m_lambda);
     m_exactDataName = data->getName().getPrefix(-1);
     // extract latest sequence number
-    m_currentSeqNum = data->getName().at(-1).toSequenceNumber();
+    uint64_t currentSeqNum = data->getName().at(-1).toSequenceNumber();
+    if (m_currentSeqNum < currentSeqNum)
+      m_currentSeqNum = currentSeqNum;
+
+    if (m_mustBeFresh > 0) {
+      Simulator::Schedule(Seconds(m_freshness.GetSeconds() + 0.001), &ConsumerRtc::SendInitialInterest, this);
+      return;
+    }
+    else {
+      NS_LOG_INFO("Estimated request window: " << m_lambda);
+      m_bootstrap_done = true;
+      m_frames++;
+    }
   }
   // Data for subsequent Interests
   else {
+    m_frames++;
     for (auto it = m_outstandingInterests.begin(); it != m_outstandingInterests.end(); it++) {
       if (it->first == data->getName()) {
         Time roundtrip = Simulator::Now() - it->second;
         m_DRD = m_DRD + ((roundtrip - m_DRD) / m_frames);
         m_outstandingInterests.erase(it);
         NS_LOG_INFO("> Data packet received for frame: " << data->getName());
-        // check if we received cached data (bursty data arrival) or the inter-arrival delay is close to the sample period
-        Time interArrivalDelay = Simulator::Now() - m_previousDataArrival;
-        m_previousDataArrival = Simulator::Now();
-        NS_LOG_INFO("Inter arrival delay: " << interArrivalDelay.GetSeconds());
-        if (interArrivalDelay.GetSeconds() >= (80 * m_samplePeriod / 100))
-          NS_LOG_INFO("Catching up with the producer...");
-        else
-          NS_LOG_INFO("Probably received cached data...");
+        interArrivalDelay = this->CheckIfDataFresh();
+
+        // print to output file
+        m_outputFile << Simulator::Now().GetSeconds() <<  "," << roundtrip.GetMilliSeconds() << "," << interArrivalDelay.GetMilliSeconds() << "," << data->getName() << "\n";
+        m_outputFile.flush();
+
         break;
       }
     }
@@ -198,6 +226,21 @@ void
 ConsumerRtc::OnTimeout(uint32_t sequenceNumber)
 {
   // do nothing
+}
+
+Time
+ConsumerRtc::CheckIfDataFresh()
+{
+  // check if we received cached data (bursty data arrival) or the inter-arrival delay is close to the sample period
+  Time interArrivalDelay = Simulator::Now() - m_previousDataArrival;
+  m_previousDataArrival = Simulator::Now();
+  NS_LOG_INFO("Inter arrival delay: " << interArrivalDelay.GetSeconds());
+  if (interArrivalDelay.GetSeconds() >= (80 * m_samplePeriod / 100))
+    NS_LOG_INFO("Catching up with the producer...");
+  else
+    NS_LOG_INFO("Probably received cached data...");
+
+  return interArrivalDelay;
 }
 
 } // namespace ndn
