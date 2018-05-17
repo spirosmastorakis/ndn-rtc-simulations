@@ -66,7 +66,6 @@ main(int argc, char* argv[])
 
   // Install NDN stack on all nodes
   ndn::StackHelper ndnHelper;
-  ndnHelper.setCsSize(100000);
   ndnHelper.SetDefaultRoutes(true);
   ndnHelper.InstallAll();
 
@@ -89,7 +88,7 @@ main(int argc, char* argv[])
   // Installing applications
 
   // Consumer Rtc at leaves
-  ndn::AppHelper consumerHelper1("ns3::ndn::ConsumerRtc");
+  ndn::AppHelper consumerHelper1("ns3::ndn::ConsumerRtcKeyFirst");
   consumerHelper1.SetAttribute("ConferencePrefix", StringValue("/conference/producer/delta"));
   consumerHelper1.SetAttribute("MustBeFreshNum", StringValue(std::to_string(fresh_data_num)));
   consumerHelper1.SetAttribute("SamplingRate", StringValue(std::to_string(sampling_rate)));
@@ -102,10 +101,10 @@ main(int argc, char* argv[])
   else
     startTime = 1.00 + (1.0 * distr(eng) / 1000);
   std::cerr << "Consumer 1 start time: " << startTime << " sec\n";
-  // consumer1.Start(Seconds(startTime)); // start consumer at 0s
-  consumer1.Start(Seconds(1.181));
+  consumer1.Start(Seconds(startTime)); // start consumer at 0s
+  // consumer1.Start(Seconds(1.181));
 
-  ndn::AppHelper consumerHelper2("ns3::ndn::ConsumerRtc");
+  ndn::AppHelper consumerHelper2("ns3::ndn::ConsumerRtcKeyFirst");
   consumerHelper2.SetAttribute("ConferencePrefix", StringValue("/conference/producer/delta"));
   consumerHelper2.SetAttribute("MustBeFreshNum", StringValue(std::to_string(fresh_data_num)));
   consumerHelper2.SetAttribute("SamplingRate", StringValue(std::to_string(sampling_rate)));
@@ -118,10 +117,10 @@ main(int argc, char* argv[])
   else
     startTime = 1.00 + (1.0 * distr(eng) / 1000);
   std::cerr << "Consumer 2 start time: " << startTime << " sec\n";
-  // consumer2.Start(Seconds(startTime)); // start consumer at 5s
-  consumer2.Start(Seconds(1.508));
+  consumer2.Start(Seconds(startTime)); // start consumer at 5s
+  // consumer2.Start(Seconds(1.508));
 
-  ndn::AppHelper consumerHelper3("ns3::ndn::ConsumerRtc");
+  ndn::AppHelper consumerHelper3("ns3::ndn::ConsumerRtcKeyFirst");
   consumerHelper3.SetAttribute("ConferencePrefix", StringValue("/conference/producer/delta"));
   consumerHelper3.SetAttribute("MustBeFreshNum", StringValue(std::to_string(fresh_data_num)));
   consumerHelper3.SetAttribute("SamplingRate", StringValue(std::to_string(sampling_rate)));
@@ -134,15 +133,15 @@ main(int argc, char* argv[])
   else
     startTime = 1.00 + (1.0 * distr(eng) / 1000);
   std::cerr << "Consumer 3 start time: " << startTime << " sec\n";
-  // consumer3.Start(Seconds(startTime)); // start consumer at 10s
+  consumer3.Start(Seconds(startTime)); // start consumer at 10s
   // PIT collision
-  // consumer3.Start(Seconds(1.022));
+  consumer3.Start(Seconds(1.022));
   // Cache collition
-  consumer3.Start(Seconds(0.98));
+  // consumer3.Start(Seconds(0.98));
   // PIT collision #2
   // consumer3.Start(Seconds(0.38));
 
-  ndn::AppHelper consumerHelper4("ns3::ndn::ConsumerRtc");
+  ndn::AppHelper consumerHelper4("ns3::ndn::ConsumerRtcKeyFirst");
   consumerHelper4.SetAttribute("ConferencePrefix", StringValue("/conference/producer/delta"));
   consumerHelper4.SetAttribute("MustBeFreshNum", StringValue(std::to_string(fresh_data_num)));
   consumerHelper4.SetAttribute("SamplingRate", StringValue(std::to_string(sampling_rate)));
@@ -155,11 +154,11 @@ main(int argc, char* argv[])
   else
     startTime = 1.00 + (1.0 * distr(eng) / 1000);
   std::cerr << "Consumer 4 start time: " << startTime << " sec\n";
-  // consumer4.Start(Seconds(startTime)); // start consumer at 15s
+  consumer4.Start(Seconds(startTime)); // start consumer at 15s
   // PIT collision
   // consumer4.Start(Seconds(1.083));
   // Cache collition
-  consumer4.Start(Seconds(1.049));
+  // consumer4.Start(Seconds(1.049));
   // PIT collision #2
   // consumer4.Start(Seconds(0.44));
 

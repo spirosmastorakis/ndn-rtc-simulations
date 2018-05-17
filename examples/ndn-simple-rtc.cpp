@@ -50,9 +50,9 @@ int
 main(int argc, char* argv[])
 {
   // setting default parameters for PointToPoint links and channels
-  Config::SetDefault("ns3::PointToPointNetDevice::DataRate", StringValue("100Mbps"));
+  Config::SetDefault("ns3::PointToPointNetDevice::DataRate", StringValue("1Gbps"));
   Config::SetDefault("ns3::PointToPointChannel::Delay", StringValue("10ms"));
-  Config::SetDefault("ns3::QueueBase::MaxPackets", UintegerValue(20));
+  Config::SetDefault("ns3::QueueBase::MaxPackets", UintegerValue(5000));
 
   double freshness = 0.01;
   uint32_t fresh_data_num = 1;
@@ -87,7 +87,10 @@ main(int argc, char* argv[])
   consumerHelper.SetAttribute("ConferencePrefix", StringValue("/conference"));
   consumerHelper.SetAttribute("MustBeFreshNum", StringValue(std::to_string(fresh_data_num)));
   consumerHelper.SetAttribute("Freshness", StringValue(std::to_string(freshness)+"s"));
-  consumerHelper.Install(nodes.Get(0));                        // first node
+  consumerHelper.SetAttribute("Filename", StringValue("consumer1.csv"));
+  consumerHelper.SetAttribute("FilenameInterarrival", StringValue("consumer1-interarrival.csv"));
+  ApplicationContainer consumer = consumerHelper.Install(nodes.Get(0));
+  consumer.Start(Seconds(0)); // start consumer at 0.2s
 
   // Producer
   ndn::AppHelper producerHelper("ns3::ndn::ProducerRtc");
@@ -96,9 +99,10 @@ main(int argc, char* argv[])
   producerHelper.SetAttribute("ProducerPrefix", StringValue("/producer"));
   producerHelper.SetAttribute("PayloadSize", StringValue("1024"));
   producerHelper.SetAttribute("Freshness", StringValue(std::to_string(freshness)+"s"));
+  producerHelper.SetAttribute("Filename", StringValue("producer.csv"));
   producerHelper.Install(nodes.Get(2)); // last node
 
-  Simulator::Stop(Seconds(2.0));
+  Simulator::Stop(Seconds(20.0));
 
   Simulator::Run();
   Simulator::Destroy();

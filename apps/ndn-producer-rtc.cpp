@@ -23,6 +23,7 @@
 #include "ns3/uinteger.h"
 #include "ns3/packet.h"
 #include "ns3/simulator.h"
+#include "ns3/boolean.h"
 
 #include "model/ndn-l3-protocol.hpp"
 #include "helper/ndn-fib-helper.hpp"
@@ -51,6 +52,12 @@ ProducerRtc::GetTypeId(void)
       .AddAttribute("SamplingRate", "Sampling Rate (frames per second)", UintegerValue(30),
                     MakeUintegerAccessor(&ProducerRtc::m_samplingRate),
                     MakeUintegerChecker<uint32_t>())
+      .AddAttribute("SegmentsPerDeltaFrame", "Segments per delta frame", UintegerValue(5),
+                    MakeUintegerAccessor(&ProducerRtc::m_segmentsPerDeltaFrame),
+                    MakeUintegerChecker<uint32_t>())
+      .AddAttribute("SegmentsPerKeyFrame", "Segments per key frame", UintegerValue(30),
+                    MakeUintegerAccessor(&ProducerRtc::m_segmentsPerKeyFrame),
+                    MakeUintegerChecker<uint32_t>())
       .AddAttribute(
          "Postfix",
          "Postfix that is added to the output data (e.g., for adding producer-uniqueness)",
@@ -69,14 +76,20 @@ ProducerRtc::GetTypeId(void)
       .AddAttribute("KeyLocator",
                     "Name to be used for key locator.  If root, then key locator is not used",
                     NameValue(), MakeNameAccessor(&ProducerRtc::m_keyLocator), MakeNameChecker())
-      .AddAttribute("Filename", "Name of output .csv file", StringValue("default.csv"),
-                    MakeStringAccessor(&ProducerRtc::m_filename), MakeStringChecker());
+      .AddAttribute("Filename", "Name of output .csv file", StringValue("default-producer.csv"),
+                    MakeStringAccessor(&ProducerRtc::m_filename), MakeStringChecker())
+      .AddAttribute("TweakFreshness", "Tweak the freshness period of the sent data", BooleanValue(false),
+                    MakeBooleanAccessor(&ProducerRtc::m_tweakFreshness),
+                    MakeBooleanChecker());
   return tid;
 }
 
 ProducerRtc::ProducerRtc()
 {
   m_frameId = 0;
+  m_keyFrameId = 0;
+  m_keyFrameId--;
+  m_deltaFrameId = 0;
   NS_LOG_FUNCTION_NOARGS();
 }
 
@@ -109,36 +122,113 @@ ProducerRtc::StopApplication()
   m_outputFile.close();
 }
 
+Name
+ProducerRtc::GenerateKeyFrame()
+{
+  m_keyFrameId++;
+  Name frameName = Name(m_conferencePrefix.toUri() + m_producerPrefix.toUri());
+  frameName.append("key");
+
+  frameName.appendSequenceNumber(m_keyFrameId);
+
+  m_deltaFrameId = 0;
+
+  NS_LOG_INFO("Generating Key Frame: " << frameName);
+
+  Name tempFrameName = frameName;
+
+  for (int i = 0; i < m_segmentsPerKeyFrame; i++) {
+    frameName.appendSequenceNumber(i);
+    m_framesGenerated.push_back(frameName);
+    m_outputFile << Simulator::Now().GetSeconds() << "," << frameName << "\n";
+    m_outputFile.flush();
+    frameName = tempFrameName;
+  }
+
+  return tempFrameName;
+}
+
+Name
+ProducerRtc::GenerateDeltaFrame()
+{
+  Name frameName = Name(m_conferencePrefix.toUri() + m_producerPrefix.toUri());
+  frameName.append("delta");
+
+  frameName.appendSequenceNumber(m_deltaFrameId);
+
+  frameName.append("paired-key");
+  frameName.appendSequenceNumber(m_keyFrameId);
+
+  m_deltaFrameId++;
+
+  NS_LOG_INFO("Generating Delta Frame: " << frameName);
+
+  Name tempFrameName = frameName;
+
+  for (int i = 0; i < m_segmentsPerDeltaFrame; i++) {
+    frameName.appendSequenceNumber(i);
+    m_framesGenerated.push_back(frameName);
+    m_outputFile << Simulator::Now().GetSeconds() << "," << frameName << "\n";
+    m_outputFile.flush();
+    frameName = tempFrameName;
+  }
+
+  return tempFrameName;
+}
+
 void
 ProducerRtc::GenerateFrame()
 {
   // Generate a frame and push it to the queue of generated frames
-  Name frameName = Name(m_conferencePrefix.toUri() + m_producerPrefix.toUri());
-  frameName.append("delta");
-  frameName.appendSequenceNumber(m_frameId);
 
-  NS_LOG_INFO("Generating Frame: " << frameName);
-  m_outputFile << Simulator::Now().GetSeconds() << "," << frameName << "\n";
+  // decide whether to generate a key or delta frame
+  bool key_frame = false;
+  Name frameName;
+  if (m_frameId % m_samplingRate == 0) {
+    key_frame = true;
+    frameName = GenerateKeyFrame();
+  }
+  else {
+    frameName = GenerateDeltaFrame();
+  }
 
-  m_framesGenerated.push_back(frameName);
   m_frameId++;
 
   // make sure the queue does not get too long...
-  if (m_framesGenerated.size() > 100) {
-    NS_LOG_INFO("Erase the oldest element of the generated frame queue: " << m_framesGenerated.front());
-    m_framesGenerated.erase(m_framesGenerated.begin());
-  }
+  // if (m_framesGenerated.size() > 1000) {
+  //   NS_LOG_INFO("Erase the 5 first elements of the generated frame queue");
+  //   for (int i = 1; i <= 5; i++) {
+  //     NS_LOG_INFO("Element " << i << ": " <<  m_framesGenerated.front());
+  //     m_framesGenerated.erase(m_framesGenerated.begin());
+  //   }
+  // }
 
-  NS_LOG_INFO("Generated frame queue size: " << m_framesGenerated.size());
-
+  int segments_found = 0;
+  std::vector<int> elementsToDelete;
+  int elementIndex = 0;
   for (auto it = m_framesRequested.begin(); it != m_framesRequested.end(); it++) {
-    if (*it == frameName) {
-      NS_LOG_INFO("Generated frame has been already requested, sending data packet out");
-      SendData(frameName);
-      m_framesRequested.erase(it);
-      break;
+    if (frameName.isPrefixOf(*it)) {
+      elementsToDelete.push_back(elementIndex);
+      segments_found++;
+      NS_LOG_INFO("Generated frame has been already requested, sending data packet out: " << *it);
+      SendData(*it, m_freshness);
+      if (key_frame) {
+        if (segments_found == m_segmentsPerKeyFrame)
+          break;
+      }
+      else {
+        if (segments_found == m_segmentsPerDeltaFrame)
+          break;
+      }
     }
+    elementIndex++;
   }
+
+  // Erase elements from vector in a safe way
+  for (int i = 0; i < elementsToDelete.size(); i++) {
+    m_framesRequested.erase(m_framesRequested.begin() + elementsToDelete[i] - i);
+  }
+
   Simulator::Schedule(Seconds(m_samplePeriod), &ProducerRtc::GenerateFrame, this);
 }
 
@@ -154,9 +244,51 @@ ProducerRtc::OnInterest(shared_ptr<const Interest> interest)
 
   Name interestName = interest->getName();
 
-  if (interestName == m_conferencePrefix && interestName.size() == 1) {
-    NS_LOG_INFO("Interest for conference prefix. Sending out latest frame: " << m_framesGenerated.back());
-    SendData(m_framesGenerated.back());
+  // Received Interest for exploration in delta namespace
+  if (interestName == Name(m_conferencePrefix.toUri() + m_producerPrefix.toUri() + "/delta") && interestName.size() == 3) {
+    Name frameToSend = m_framesGenerated.back();
+    for (auto it = m_framesGenerated.end() - 1; it != m_framesGenerated.begin(); it--) {
+      if (it->at(2).toUri() == "delta") {
+        frameToSend = it->getPrefix(-1);
+        frameToSend.appendSequenceNumber(0);
+        break;
+      }
+    }
+    NS_LOG_INFO("Interest for conference prefix in delta namespace. Sending out latest delta frame: " << frameToSend);
+    SendData(frameToSend, m_freshness);
+    return;
+  }
+
+  // Received Interest for exploration in key namespace
+  if (interestName == Name(m_conferencePrefix.toUri() + m_producerPrefix.toUri() + "/key") && interestName.size() == 3) {
+    Name frameToSend = m_framesGenerated.back();
+    for (auto it = m_framesGenerated.end() - 1; it != m_framesGenerated.begin(); it--) {
+      if (it->at(2).toUri() == "key") {
+        frameToSend = it->getPrefix(-1);
+        frameToSend.appendSequenceNumber(0);
+        frameToSend.appendSequenceNumber(m_deltaFrameId);
+        break;
+      }
+    }
+    NS_LOG_INFO("Interest for conference prefix in key namespace. Sending out latest key frame: " << frameToSend);
+    SendData(frameToSend, m_freshness);
+    return;
+  }
+
+  // Received Interest for exploration in key namespace
+  if (interestName == Name(m_conferencePrefix.toUri() + m_producerPrefix.toUri() + "/discovery") && interestName.size() == 3) {
+    Name frameToSend = m_framesGenerated.back();
+    for (auto it = m_framesGenerated.end() - 1; it != m_framesGenerated.begin(); it--) {
+      if (it->at(2).toUri() == "key") {
+        frameToSend = interestName;
+        frameToSend.appendSequenceNumber(it->at(3).toSequenceNumber());
+        frameToSend.appendSequenceNumber(m_deltaFrameId);
+        break;
+      }
+    }
+    NS_LOG_INFO("Interest for conference prefix in discovery namespace. Sending out latest key frame: " << frameToSend);
+    Time t = MilliSeconds(90);
+    SendData(frameToSend, t);
     return;
   }
 
@@ -170,25 +302,46 @@ ProducerRtc::OnInterest(shared_ptr<const Interest> interest)
   // check whether frame has alredy been generated
   for (auto it = m_framesGenerated.begin(); it != m_framesGenerated.end(); it++) {
     if (*it == interestName) {
-      NS_LOG_INFO("Frame with name: " <<  interestName << " already generated, sending data packet out");
-      SendData(interestName);
+      NS_LOG_INFO("Frame segment with name: " <<  interestName << " already generated, sending data packet out");
+      if (!m_tweakFreshness) {
+        NS_LOG_INFO("Interest with regular lifetime");
+        SendData(interestName, m_freshness);
+        return;
+      }
+      if (interestName.at(2).toUri() == "key")
+        SendData(interestName, m_freshness);
+      else if (m_deltaFrameId == 0) {
+        if (interestName.at(3).toSequenceNumber() == 28)
+          SendData(interestName, m_freshness);
+        else {
+          NS_LOG_INFO("Data with 0 ms freshness");
+          Time t = MilliSeconds(0);
+          SendData(interestName, t);
+        }
+      }
+      else if ((m_deltaFrameId - 1) == interestName.at(3).toSequenceNumber())
+        SendData(interestName, m_freshness);
+      else {
+        NS_LOG_INFO("Data with 0 ms freshness");
+        Time t = MilliSeconds(0);
+        SendData(interestName, t);
+      }
       return;
     }
   }
   // frame data not generated yet. Insert request to the queue
-  NS_LOG_INFO("Frame with name: " <<  interestName << " not generated yet, pushing request to the queue");
+  NS_LOG_INFO("Frame segment with name: " <<  interestName << " not generated yet, pushing request to the queue");
   m_framesRequested.push_back(interestName);
 
-  // TODO: Set timeout for a requested frame name in the queue based on the
-  // Interest lifetime
 }
 
 void
-ProducerRtc::SendData(Name& dataName)
+ProducerRtc::SendData(Name& dataName, Time freshness)
 {
   auto data = make_shared<Data>();
   data->setName(dataName);
-  data->setFreshnessPeriod(::ndn::time::milliseconds(m_freshness.GetMilliSeconds()));
+  data->setFreshnessPeriod(::ndn::time::milliseconds(freshness.GetMilliSeconds()));
+  NS_LOG_INFO("Freshness: " << freshness.GetMilliSeconds() << " ms");
 
   data->setContent(make_shared< ::ndn::Buffer>(m_virtualPayloadSize));
 

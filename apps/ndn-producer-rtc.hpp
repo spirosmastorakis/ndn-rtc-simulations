@@ -65,7 +65,15 @@ protected:
   GenerateFrame(); // Generate a frame
 
   void
-  SendData(Name& dataName); // Send generated frame data
+  SendData(Name& dataName, Time freshness); // Send generated frame data
+
+private:
+
+  Name
+  GenerateKeyFrame(); // Generate a key frame
+
+  Name
+  GenerateDeltaFrame(); // Generate a delta frame
 
 private:
   Name m_conferencePrefix;
@@ -83,6 +91,14 @@ private:
   std::vector<Name> m_framesRequested;
   std::string m_filename;
   std::ofstream m_outputFile;
+
+  uint64_t m_keyFrameId;
+  uint64_t m_deltaFrameId;
+
+  uint32_t m_segmentsPerDeltaFrame;
+  uint32_t m_segmentsPerKeyFrame;
+
+  bool m_tweakFreshness;
 };
 
 } // namespace ndn

@@ -17,8 +17,8 @@
  * ndnSIM, e.g., in COPYING.md file.  If not, see <http://www.gnu.org/licenses/>.
  **/
 
-#ifndef NDN_CONSUMER_RTC_H
-#define NDN_CONSUMER_RTC_H
+#ifndef NDN_CONSUMER_RTC_KEY_FIRST_H
+#define NDN_CONSUMER_RTC_KEY_FIRST_H
 
 #include "ns3/ndnSIM/model/ndn-common.hpp"
 
@@ -33,7 +33,7 @@ namespace ndn {
  * @ingroup ndn-apps
  * @brief Ndn application for RTC consumer
  */
-class ConsumerRtc : public Consumer {
+class ConsumerRtcKeyFirst : public Consumer {
 public:
   static TypeId
   GetTypeId();
@@ -42,8 +42,8 @@ public:
    * \brief Default constructor
    * Sets up randomizer function and packet sequence number
    */
-  ConsumerRtc();
-  virtual ~ConsumerRtc();
+  ConsumerRtcKeyFirst();
+  virtual ~ConsumerRtcKeyFirst();
 
   // From App
   virtual void
@@ -112,6 +112,18 @@ private:
   bool
   lastSegmentOfFrame(std::vector<std::pair<Name, Time>>::iterator it);
 
+  void
+  ScheduleSingleDeltaFrame();
+
+  void
+  ScheduleInitialInterests();
+
+  void
+  CancelTimers(uint32_t seq, uint32_t hopCount);
+
+  void
+  SendPacketAgain(Name interestName, uint32_t sequenceNumber);
+
 protected:
   double m_frequency; // Frequency of interest packets (in hertz)
   bool m_firstTime;
@@ -139,6 +151,8 @@ protected:
   std::vector<std::pair<Name, Time>> m_outstandingPreviousDeltas;
   uint64_t m_segmentsReceived;
 
+  bool m_printLambda;
+
   bool m_bootstrap_done;
 
   Time m_previousDataArrival;
@@ -155,7 +169,21 @@ protected:
 
   uint32_t m_inFlightFrames;
 
-  bool m_startFromNextKeyFrame;
+  uint32_t m_initialKeyFrameId;
+
+  bool m_initialKeySegmentReceived;
+
+  Time m_startTime;
+
+  uint32_t globalSeqNum;
+  std::vector<std::pair<uint32_t, Name>> m_allOutstandingInterests;
+
+  uint32_t m_boostrapInterests;
+
+  Time m_firstInterestSent;
+  uint32_t m_num;
+  uint32_t m_initialLambda;
+  uint32_t m_rtt_ideal;
 };
 
 } // namespace ndn

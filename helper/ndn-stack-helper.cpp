@@ -274,6 +274,9 @@ StackHelper::DefaultNetDeviceCallback(Ptr<Node> node, Ptr<L3Protocol> ndn,
   ::nfd::face::GenericLinkService::Options opts;
   opts.allowFragmentation = true;
   opts.allowReassembly = true;
+  //opts.allowLocalFields = false;
+  //opts.reliabilityOptions.isEnabled = true;
+  //initialize(opts);
 
   auto linkService = make_unique<::nfd::face::GenericLinkService>(opts);
 
@@ -312,6 +315,9 @@ StackHelper::PointToPointNetDeviceCallback(Ptr<Node> node, Ptr<L3Protocol> ndn,
   ::nfd::face::GenericLinkService::Options opts;
   opts.allowFragmentation = true;
   opts.allowReassembly = true;
+  //opts.allowLocalFields = false;
+  //opts.reliabilityOptions.isEnabled = true;
+  //initialize(opts);
 
   auto linkService = make_unique<::nfd::face::GenericLinkService>(opts);
 
